@@ -34,6 +34,20 @@ class HPCFastTrainer(RodanTask):
                 'type': 'integer',
                 'minimum': 64,
                 'default': 256
+            },
+            'Maximum time (D-HH:MM)': {
+                'type': 'string',
+                'default': '0-03:00'
+            },
+            'Maximum memory (MB)': {
+                'type': 'integer',
+                'minimum': 1024,
+                'default': 3072
+            },
+            'CPUs': {
+                'type': 'integer',
+                'minimum': 1,
+                'default': 2
             }
         }
     }
@@ -69,15 +83,9 @@ class HPCFastTrainer(RodanTask):
         with open(inputs['rgba PNG - Selected regions'][0]['resource_path'], 'rb') as f:
             input['Selected Regions'] = base64.encodebytes(f.read()).decode('utf-8')
 
-        params = {
-            'Maximum number of training epochs': settings['Maximum number of training epochs'],
-            'Patch height': settings['Patch height'],
-            'Patch width': settings['Patch width']
-        }
-
         message_dict = {
             'inputs': input,
-            'settings': params
+            'settings': settings
         }
         message = json.dumps(message_dict)
 
