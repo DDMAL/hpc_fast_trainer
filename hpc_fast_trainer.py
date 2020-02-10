@@ -1,5 +1,6 @@
 from rodan.jobs.base import RodanTask
 from time import sleep
+from uuid import uuid4
 import base64
 import json
 import os
@@ -16,9 +17,11 @@ class HPCFastTrainer(RodanTask):
 
     settings = {
         'title': 'Training parameters',
+        'type': 'object',
+        'job_queue': 'Python3',
         'properties': {
             'Maximum number of training epochs': {
-                'type: integer',
+                'type': 'integer',
                 'minimum': 1,
                 'default': 10
             },
@@ -32,8 +35,7 @@ class HPCFastTrainer(RodanTask):
                 'minimum': 64,
                 'default': 256
             }
-        },
-        'job_queue': 'Python3'
+        }
     }
 
     input_port_types = (
@@ -79,21 +81,27 @@ class HPCFastTrainer(RodanTask):
         }
         message = json.dumps(message_dict)
 
-        credentials = pika.PlainCredentials(os.environ['HCP_RABBITMQ_USER'], os.environ['HCP_RABBITMQ_PASSWORD'])
-        parameters = pika.ConnectionParameters(os.environ['HCP_RABBITMQ_HOST'], 5672, '/', credentials)
+        credentials = pika.PlainCredentials(os.environ['HPC_RABBITMQ_USER'], os.environ['HPC_RABBITMQ_PASSWORD'])
+        parameters = pika.ConnectionParameters(os.environ['HPC_RABBITMQ_HOST'], 5672, '/', credentials)
         result_dict = None
         with pika.BlockingConnection(parameters) as conn:
             # Open Channel
             channel = conn.channel()
-            channel.queue_declare(queue='hcp-jobs')
+            channel.queue_declare(queue='hpc-jobs')
+            channel.queue_declare(queue='hpc-results')
             # Declare anonymous reply queue
-            result = channel.queue_declare(queue='', exclusive=True)
-            callback_queue = result.method.queue
+            #result = channel.queue_declare(queue='', exclusive=True)
+            #callback_queue = result.method.queue
+            callback_queue = 'hpc-results'
+            correlation_id = str(uuid4())
             # Send Message
             channel.basic_publish(
                 exchange='',
-                routing_key='hcp-jobs',
-                properties=pika.BasicProperties(reply_to=callback_queue),
+                routing_key='hpc-jobs',
+                properties=pika.BasicProperties(
+                    reply_to=callback_queue,
+                    correlation_id=correlation_id
+                    ),
                 body=message
             )
 
@@ -103,14 +111,12 @@ class HPCFastTrainer(RodanTask):
             while not message_received:
                 # Get message from queue
                 method_frame, header_frame, body = channel.basic_get(callback_queue)
-                if method_frame:
+                if method_frame and correlation_id == header_frame.correlation_id:
                     message_received = True
                     channel.basic_ack(method_frame.delivery_tag)
-                    result_dict = json.loads(body)
+                    result_dict = json.loads(body.decode('utf-8'))
                 else:
                     sleep(60)
-
-            channel.queue_delete(callback_queue)  # Clean up on RabbitMQ
 
         with open(outputs['Background Model'][0]['resource_path'], 'wb') as f:
             f.write(base64.decodebytes(result_dict['Background Model'].encode('utf-8')))
