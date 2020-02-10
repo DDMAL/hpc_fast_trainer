@@ -1,2 +1,4 @@
 __version__ = "0.0.0"
-from hpc_fast_trainer import HPCFastTrainer
+from rodan.jobs import module_loader
+
+module_loader('rodan.jobs.hpc-fast-trainer.hpc_fast_trainer')
