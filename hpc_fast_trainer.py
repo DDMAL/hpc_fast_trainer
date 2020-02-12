@@ -1,4 +1,6 @@
 from rodan.jobs.base import RodanTask
+from rodan.models import Input
+from django.conf import settings as rodan_settings
 from time import sleep
 from uuid import uuid4
 import base64
@@ -37,17 +39,21 @@ class HPCFastTrainer(RodanTask):
             },
             'Maximum time (D-HH:MM)': {
                 'type': 'string',
-                'default': '0-03:00'
+                'default': '0-06:00'
             },
             'Maximum memory (MB)': {
                 'type': 'integer',
                 'minimum': 1024,
-                'default': 3072
+                'default': 32768
             },
             'CPUs': {
                 'type': 'integer',
                 'minimum': 1,
-                'default': 2
+                'default': 6
+            },
+            'Slurm Notification Email': {
+                'type': 'string',
+                'default': ''
             }
         }
     }
@@ -68,20 +74,44 @@ class HPCFastTrainer(RodanTask):
         {'name': 'Text Model', 'minimum': 1, 'maximum': 1, 'resource_types': ['keras/model+hdf5']},
     )
 
+    def _inputs(self, runjob, with_urls=True):
+        """
+        Return a dictionary of list of input file path and input resource type.
+        If with_urls=True, it also includes the resource url and thumbnail urls.
+        """
+        def _extract_resource(resource, resource_type_mimetype=None):
+            r = {'resource_path': str(resource.resource_file.path),  # convert 'unicode' object to 'str' object for consistency
+                 'resource_type': str(resource_type_mimetype or resource.resource_type.mimetype)}
+            if with_urls:
+                r['resource_url'] = str(resource.resource_url)
+                r['diva_object_data'] = str(resource.diva_json_url)
+                r['diva_iip_server'] = getattr(rodan_settings, 'IIPSRV_URL')
+                r['diva_image_dir'] = str(resource.diva_image_dir)
+            return r
+
+        input_objs = Input.objects.filter(run_job=runjob).select_related('resource', 'resource__resource_type', 'resource_list').prefetch_related('resource_list__resources')
+
+        inputs = {}
+        for input in input_objs:
+            ipt_name = str(input.input_port_type_name)
+            if ipt_name not in inputs:
+                inputs[ipt_name] = []
+            if input.resource is not None:  # If resource
+                inputs[ipt_name].append(_extract_resource(input.resource))
+            elif input.resource_list is not None:  # If resource_list
+                inputs[ipt_name].append(map(lambda x: _extract_resource(x, input.resource_list.resource_type.mimetype), input.resource_list.resources.all()))
+            else:
+                raise RuntimeError("Cannot find any resource or resource list on Input {0}".format(input.uuid))
+        return inputs
+
     def run_my_task(self, inputs, settings, outputs):
         input = {}
-        with open(inputs['Image'][0]['resource_path'], 'rb') as f:
-            input['Image'] = base64.encodebytes(f.read()).decode('utf-8')
-        with open(inputs['rgba PNG - Background layer'][0]['resource_path'], 'rb') as f:
-            input['Background'] = base64.encodebytes(f.read()).decode('utf-8')
-        with open(inputs['rgba PNG - Music symbol layer'][0]['resource_path'], 'rb') as f:
-            input['Music Layer'] = base64.encodebytes(f.read()).decode('utf-8')
-        with open(inputs['rgba PNG - Staff lines layer'][0]['resource_path'], 'rb') as f:
-            input['Staff Layer'] = base64.encodebytes(f.read()).decode('utf-8')
-        with open(inputs['rgba PNG - Text'][0]['resource_path'], 'rb') as f:
-            input['Text'] = base64.encodebytes(f.read()).decode('utf-8')
-        with open(inputs['rgba PNG - Selected regions'][0]['resource_path'], 'rb') as f:
-            input['Selected Regions'] = base64.encodebytes(f.read()).decode('utf-8')
+        input['Image'] = inputs['Image'][0]['resource_url']
+        input['Background'] = inputs['rgba PNG - Background layer'][0]['resource_url']
+        input['Music Layer'] = inputs['rgba PNG - Music symbol layer'][0]['resource_url']
+        input['Staff Layer'] = inputs['rgba PNG - Staff lines layer'][0]['resource_url']
+        input['Text'] = inputs['rgba PNG - Text'][0]['resource_url']
+        input['Selected Regions'] = inputs['rgba PNG - Selected regions'][0]['resource_url']
 
         message_dict = {
             'inputs': input,
