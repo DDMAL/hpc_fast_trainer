@@ -154,7 +154,7 @@ class HPCFastTrainer(RodanTask):
                     channel.basic_ack(method_frame.delivery_tag)
                     result_dict = json.loads(body.decode('utf-8'))
                 else:
-                    sleep(60)
+                    conn.process_data_events()
 
         with open(outputs['Background Model'][0]['resource_path'], 'wb') as f:
             f.write(base64.decodebytes(result_dict['Background Model'].encode('utf-8')))
