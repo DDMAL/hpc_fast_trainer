@@ -27,6 +27,11 @@ class HPCFastTrainer(RodanTask):
                 'minimum': 1,
                 'default': 10
             },
+            'Maximum number of samples per label': {
+                'type': 'integer',
+                'minimum': 100,
+                'default': 2000
+            },
             'Patch height': {
                 'type': 'integer',
                 'minimum': 64,
