@@ -1,4 +1,4 @@
-from celery import get_task_logger
+from celery.utils.log import get_task_logger
 from rodan.jobs.base import RodanTask
 from rodan.models import Input
 from django.conf import settings as rodan_settings
