@@ -1,7 +1,7 @@
+from celery import get_task_logger
 from rodan.jobs.base import RodanTask
 from rodan.models import Input
 from django.conf import settings as rodan_settings
-from time import sleep
 from uuid import uuid4
 import base64
 import json
@@ -16,6 +16,9 @@ class HPCFastTrainer(RodanTask):
     enabled = True
     category = "OMR - Layout analysis"
     interactive = False
+
+    logger = get_task_logger(__name__)
+    result_dict = None
 
     settings = {
         'title': 'Training parameters',
@@ -126,15 +129,17 @@ class HPCFastTrainer(RodanTask):
 
         credentials = pika.PlainCredentials(os.environ['HPC_RABBITMQ_USER'], os.environ['HPC_RABBITMQ_PASSWORD'])
         parameters = pika.ConnectionParameters(os.environ['HPC_RABBITMQ_HOST'], 5672, '/', credentials)
-        result_dict = None
+        self.logger.info("Preparing to connect...")
+
         with pika.BlockingConnection(parameters) as conn:
             # Open Channel
             channel = conn.channel()
+            channel.confirm_delivery()
             channel.queue_declare(queue='hpc-jobs')
             channel.queue_declare(queue='hpc-results')
             # Declare anonymous reply queue
-            #result = channel.queue_declare(queue='', exclusive=True)
-            #callback_queue = result.method.queue
+            # result = channel.queue_declare(queue='', exclusive=True)
+            # callback_queue = result.method.queue
             callback_queue = 'hpc-results'
             correlation_id = str(uuid4())
             # Send Message
@@ -147,27 +152,33 @@ class HPCFastTrainer(RodanTask):
                     ),
                 body=message
             )
+            self.logger.info("Message sent. Start waiting for reply")
 
-            # Check for response
-            message_received = False
-            body = None
-            while not message_received:
-                # Get message from queue
-                method_frame, header_frame, body = channel.basic_get(callback_queue)
+            # define consumer callback
+            def callback(channel, method_frame, header_frame, body):
+                self.logger.info(method_frame.delivery_tag)
+                self.logger.info(body)
                 if method_frame and correlation_id == header_frame.correlation_id:
-                    message_received = True
+                    self.logger.info("Good!")
                     channel.basic_ack(method_frame.delivery_tag)
-                    result_dict = json.loads(body.decode('utf-8'))
+                    self.result_dict = json.loads(body.decode('utf-8'))
+                    channel.basic_cancel(method_frame.consumer_tag)
                 else:
-                    conn.process_data_events()
+                    self.logger.info("Cannot handle id {}".format(correlation_id))
+                    channel.basic_nack(method_frame.delivery_tag)
+
+            channel.basic_consume(callback_queue, callback)
+            channel.start_consuming()
+
+        self.logger.info(self.result_dict)
 
         with open(outputs['Background Model'][0]['resource_path'], 'wb') as f:
-            f.write(base64.decodebytes(result_dict['Background Model'].encode('utf-8')))
+            f.write(base64.decodebytes(self.result_dict['Background Model'].encode('utf-8')))
         with open(outputs['Music Symbol Model'][0]['resource_path'], 'wb') as f:
-            f.write(base64.decodebytes(result_dict['Music Symbol Model'].encode('utf-8')))
+            f.write(base64.decodebytes(self.result_dict['Music Symbol Model'].encode('utf-8')))
         with open(outputs['Staff Lines Model'][0]['resource_path'], 'wb') as f:
-            f.write(base64.decodebytes(result_dict['Staff Lines Model'].encode('utf-8')))
+            f.write(base64.decodebytes(self.result_dict['Staff Lines Model'].encode('utf-8')))
         with open(outputs['Text Model'][0]['resource_path'], 'wb') as f:
-            f.write(base64.decodebytes(result_dict['Text Model'].encode('utf-8')))
+            f.write(base64.decodebytes(self.result_dict['Text Model'].encode('utf-8')))
 
         return True
