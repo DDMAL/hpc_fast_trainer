@@ -171,6 +171,14 @@ class HPCFastTrainer(RodanTask):
             channel.start_consuming()
 
         self.logger.info(self.result_dict)
+        if "error" in self.result_dict:
+            self.my_error_information(
+                None,
+                (
+                    "The request to Cedar failed with response: {0}"
+                ).format(self.result_dict["error"])
+            )
+            return False
 
         with open(outputs['Background Model'][0]['resource_path'], 'wb') as f:
             f.write(base64.decodebytes(self.result_dict['Background Model'].encode('utf-8')))
@@ -182,3 +190,7 @@ class HPCFastTrainer(RodanTask):
             f.write(base64.decodebytes(self.result_dict['Text Model'].encode('utf-8')))
 
         return True
+
+    def my_error_information(self, exc, traceback):
+        self.error_summary = 'HPC Fast Trainer - Something went very wrong'
+        self.error_details = traceback
