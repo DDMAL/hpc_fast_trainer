@@ -28,12 +28,12 @@ class HPCFastTrainer(RodanTask):
             'Maximum number of training epochs': {
                 'type': 'integer',
                 'minimum': 1,
-                'default': 10
+                'default': 15
             },
             'Maximum number of samples per label': {
                 'type': 'integer',
                 'minimum': 100,
-                'default': 2000
+                'default': 10000
             },
             'Patch height': {
                 'type': 'integer',
