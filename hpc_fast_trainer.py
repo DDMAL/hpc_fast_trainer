@@ -175,7 +175,8 @@ class HPCFastTrainer(RodanTask):
             self.my_error_information(
                 None,
                 (
-                    "The request to Cedar failed with response: {0}"
+                    "The request to Cedar failed with response: {0}\n"
+                    "Try adding more memory and run the job again."
                 ).format(self.result_dict["error"])
             )
             return False
