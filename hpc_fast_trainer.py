@@ -52,7 +52,7 @@ class HPCFastTrainer(RodanTask):
             'Maximum memory (MB)': {
                 'type': 'integer',
                 'minimum': 1024,
-                'default': 32768
+                'default': 257000
             },
             'CPUs': {
                 'type': 'integer',
