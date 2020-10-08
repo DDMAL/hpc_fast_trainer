@@ -70,16 +70,18 @@ class HPCFastTrainer(RodanTask):
         {'name': 'Image', 'minimum': 1, 'maximum': 1, 'resource_types': ['image/rgb+png', 'image/rgb+jpg']},
         {'name': 'rgba PNG - Background layer', 'minimum': 1, 'maximum': 1, 'resource_types': ['image/rgba+png']},
         {'name': 'rgba PNG - Music symbol layer', 'minimum': 1, 'maximum': 1, 'resource_types': ['image/rgba+png']},
-        {'name': 'rgba PNG - Staff lines layer', 'minimum': 1, 'maximum': 1, 'resource_types': ['image/rgba+png']},
-        {'name': 'rgba PNG - Text', 'minimum': 1, 'maximum': 1, 'resource_types': ['image/rgba+png']},
-        {'name': 'rgba PNG - Selected regions', 'minimum': 1, 'maximum': 1, 'resource_types': ['image/rgba+png']}
+        {'name': 'rgba PNG - Selected regions', 'minimum': 1, 'maximum': 1, 'resource_types': ['image/rgba+png']},
+        # Optional ports
+        {'name': 'rgba PNG - Staff lines layer', 'minimum': 0, 'maximum': 1, 'resource_types': ['image/rgba+png']},
+        {'name': 'rgba PNG - Text', 'minimum': 0, 'maximum': 1, 'resource_types': ['image/rgba+png']},
     )
 
     output_port_types = (
         {'name': 'Background Model', 'minimum': 1, 'maximum': 1, 'resource_types': ['keras/model+hdf5']},
         {'name': 'Music Symbol Model', 'minimum': 1, 'maximum': 1, 'resource_types': ['keras/model+hdf5']},
-        {'name': 'Staff Lines Model', 'minimum': 1, 'maximum': 1, 'resource_types': ['keras/model+hdf5']},
-        {'name': 'Text Model', 'minimum': 1, 'maximum': 1, 'resource_types': ['keras/model+hdf5']},
+        # Optional ports
+        {'name': 'Staff Lines Model', 'minimum': 0, 'maximum': 1, 'resource_types': ['keras/model+hdf5']},
+        {'name': 'Text Model', 'minimum': 0, 'maximum': 1, 'resource_types': ['keras/model+hdf5']},
     )
 
     def _inputs(self, runjob, with_urls=True):
@@ -117,9 +119,14 @@ class HPCFastTrainer(RodanTask):
         input['Image'] = inputs['Image'][0]['resource_url']
         input['Background'] = inputs['rgba PNG - Background layer'][0]['resource_url']
         input['Music Layer'] = inputs['rgba PNG - Music symbol layer'][0]['resource_url']
-        input['Staff Layer'] = inputs['rgba PNG - Staff lines layer'][0]['resource_url']
-        input['Text'] = inputs['rgba PNG - Text'][0]['resource_url']
         input['Selected Regions'] = inputs['rgba PNG - Selected regions'][0]['resource_url']
+
+        # Optional ports
+        for k in inputs:
+            if k == 'rgba PNG - Staff lines layer':
+                input['Staff Layer'] = inputs['rgba PNG - Staff lines layer'][0]['resource_url']
+            if k == 'rgba PNG - Text':
+                input['Text'] = inputs['rgba PNG - Text'][0]['resource_url']
 
         message_dict = {
             'inputs': input,
@@ -185,10 +192,15 @@ class HPCFastTrainer(RodanTask):
             f.write(base64.decodebytes(self.result_dict['Background Model'].encode('utf-8')))
         with open(outputs['Music Symbol Model'][0]['resource_path'], 'wb') as f:
             f.write(base64.decodebytes(self.result_dict['Music Symbol Model'].encode('utf-8')))
-        with open(outputs['Staff Lines Model'][0]['resource_path'], 'wb') as f:
-            f.write(base64.decodebytes(self.result_dict['Staff Lines Model'].encode('utf-8')))
-        with open(outputs['Text Model'][0]['resource_path'], 'wb') as f:
-            f.write(base64.decodebytes(self.result_dict['Text Model'].encode('utf-8')))
+
+        # Optional ports
+        for k in outputs:
+            if k == 'rgba PNG - Staff Lines layer':
+                with open(outputs['Staff Lines Model'][0]['resource_path'], 'wb') as f:
+                    f.write(base64.decodebytes(self.result_dict['Staff Lines Model'].encode('utf-8')))
+            if k == 'Text Model':
+                with open(outputs['Text Model'][0]['resource_path'], 'wb') as f:
+                    f.write(base64.decodebytes(self.result_dict['Text Model'].encode('utf-8')))
 
         return True
 
