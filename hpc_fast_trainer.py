@@ -157,11 +157,11 @@ class HPCFastTrainer(RodanTask):
             input[layer] = inputs[layer][0]['resource_url']
 
         # Optional ports
-        for k in inputs:
-            if k == 'rgba PNG - Staff lines layer':
-                input['Staff Layer'] = inputs['rgba PNG - Staff lines layer'][0]['resource_url']
-            if k == 'rgba PNG - Text':
-                input['Text'] = inputs['rgba PNG - Text'][0]['resource_url']
+        # for k in inputs:
+        #     if k == 'rgba PNG - Staff lines layer':
+        #         input['Staff Layer'] = inputs['rgba PNG - Staff lines layer'][0]['resource_url']
+        #     if k == 'rgba PNG - Text':
+        #         input['Text'] = inputs['rgba PNG - Text'][0]['resource_url']
 
         message_dict = {
             'inputs': input,
