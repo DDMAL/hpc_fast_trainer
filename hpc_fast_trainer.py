@@ -68,20 +68,38 @@ class HPCFastTrainer(RodanTask):
 
     input_port_types = (
         {'name': 'Image', 'minimum': 1, 'maximum': 1, 'resource_types': ['image/rgb+png', 'image/rgb+jpg']},
-        {'name': 'rgba PNG - Background layer', 'minimum': 1, 'maximum': 1, 'resource_types': ['image/rgba+png']},
-        {'name': 'rgba PNG - Music symbol layer', 'minimum': 1, 'maximum': 1, 'resource_types': ['image/rgba+png']},
         {'name': 'rgba PNG - Selected regions', 'minimum': 1, 'maximum': 1, 'resource_types': ['image/rgba+png']},
-        # Optional ports
-        {'name': 'rgba PNG - Staff lines layer', 'minimum': 0, 'maximum': 1, 'resource_types': ['image/rgba+png']},
-        {'name': 'rgba PNG - Text', 'minimum': 0, 'maximum': 1, 'resource_types': ['image/rgba+png']},
+        {'name': 'rgba PNG - Background layer', 'minimum': 1, 'maximum': 1, 'resource_types': ['image/rgba+png']},
+        # {'name': 'rgba PNG - Music symbol layer', 'minimum': 1, 'maximum': 1, 'resource_types': ['image/rgba+png']},
+        # {'name': 'rgba PNG - Staff lines layer', 'minimum': 1, 'maximum': 1, 'resource_types': ['image/rgba+png']},
+        # {'name': 'rgba PNG - Text', 'minimum': 1, 'maximum': 1, 'resource_types': ['image/rgba+png']},
+        {'name': 'rgba PNG - Layer 0', 'minimum': 1, 'maximum': 1, 'resource_types': ['image/rgba+png']},
+        {'name': 'rgba PNG - Layer 1', 'minimum': 0, 'maximum': 1, 'resource_types': ['image/rgba+png']},
+        {'name': 'rgba PNG - Layer 2', 'minimum': 0, 'maximum': 1, 'resource_types': ['image/rgba+png']},
+        {'name': 'rgba PNG - Layer 3', 'minimum': 0, 'maximum': 1, 'resource_types': ['image/rgba+png']},
+        {'name': 'rgba PNG - Layer 4', 'minimum': 0, 'maximum': 1, 'resource_types': ['image/rgba+png']},
+        {'name': 'rgba PNG - Layer 5', 'minimum': 0, 'maximum': 1, 'resource_types': ['image/rgba+png']},
+        {'name': 'rgba PNG - Layer 6', 'minimum': 0, 'maximum': 1, 'resource_types': ['image/rgba+png']},
+        {'name': 'rgba PNG - Layer 7', 'minimum': 0, 'maximum': 1, 'resource_types': ['image/rgba+png']},
+        {'name': 'rgba PNG - Layer 8', 'minimum': 0, 'maximum': 1, 'resource_types': ['image/rgba+png']},
+        {'name': 'rgba PNG - Layer 9', 'minimum': 0, 'maximum': 1, 'resource_types': ['image/rgba+png']},
     )
 
     output_port_types = (
         {'name': 'Background Model', 'minimum': 1, 'maximum': 1, 'resource_types': ['keras/model+hdf5']},
-        {'name': 'Music Symbol Model', 'minimum': 1, 'maximum': 1, 'resource_types': ['keras/model+hdf5']},
-        # Optional ports
-        {'name': 'Staff Lines Model', 'minimum': 0, 'maximum': 1, 'resource_types': ['keras/model+hdf5']},
-        {'name': 'Text Model', 'minimum': 0, 'maximum': 1, 'resource_types': ['keras/model+hdf5']},
+        # {'name': 'Music Symbol Model', 'minimum': 1, 'maximum': 1, 'resource_types': ['keras/model+hdf5']},
+        # {'name': 'Staff Lines Model', 'minimum': 1, 'maximum': 1, 'resource_types': ['keras/model+hdf5']},
+        # {'name': 'Text Model', 'minimum': 1, 'maximum': 1, 'resource_types': ['keras/model+hdf5']},
+        {'name': 'Model 0', 'minimum': 1, 'maximum': 1, 'resource_types': ['keras/model+hdf5']},
+        {'name': 'Model 1', 'minimum': 0, 'maximum': 1, 'resource_types': ['keras/model+hdf5']},
+        {'name': 'Model 2', 'minimum': 0, 'maximum': 1, 'resource_types': ['keras/model+hdf5']},
+        {'name': 'Model 3', 'minimum': 0, 'maximum': 1, 'resource_types': ['keras/model+hdf5']},
+        {'name': 'Model 4', 'minimum': 0, 'maximum': 1, 'resource_types': ['keras/model+hdf5']},
+        {'name': 'Model 5', 'minimum': 0, 'maximum': 1, 'resource_types': ['keras/model+hdf5']},
+        {'name': 'Model 6', 'minimum': 0, 'maximum': 1, 'resource_types': ['keras/model+hdf5']},
+        {'name': 'Model 7', 'minimum': 0, 'maximum': 1, 'resource_types': ['keras/model+hdf5']},
+        {'name': 'Model 8', 'minimum': 0, 'maximum': 1, 'resource_types': ['keras/model+hdf5']},
+        {'name': 'Model 9', 'minimum': 0, 'maximum': 1, 'resource_types': ['keras/model+hdf5']},
     )
 
     def _inputs(self, runjob, with_urls=True):
@@ -115,11 +133,28 @@ class HPCFastTrainer(RodanTask):
         return inputs
 
     def run_my_task(self, inputs, settings, outputs):
+        # Fail if arbitrary layers are not equal before training occurs.
+        input_ports = len([x for x in inputs if x[:17] == 'rgba PNG - Layer '])
+        output_ports = len([x for x in outputs if x[:5] == 'Model'])
+        if input_ports != output_ports:
+            raise Exception(
+                'The number of input layers "rgba PNG - Layers" does not match the number of'
+                ' output "Models"\n'
+                'input_ports: %d output_ports: %d' % (input_ports, output_ports)
+            )
+
         input = {}
         input['Image'] = inputs['Image'][0]['resource_url']
         input['Background'] = inputs['rgba PNG - Background layer'][0]['resource_url']
-        input['Music Layer'] = inputs['rgba PNG - Music symbol layer'][0]['resource_url']
         input['Selected Regions'] = inputs['rgba PNG - Selected regions'][0]['resource_url']
+        # input['Music Layer'] = inputs['rgba PNG - Music symbol layer'][0]['resource_url']
+        # input['Staff Layer'] = inputs['rgba PNG - Staff lines layer'][0]['resource_url']
+        # input['Text'] = inputs['rgba PNG - Text'][0]['resource_url']
+
+        # Populate use-defined layers
+        for i in range(input_ports):
+            layer = 'rgba PNG - Layer %d' % i
+            input[layer] = inputs[layer][0]['resource_url']
 
         # Optional ports
         for k in inputs:
@@ -190,17 +225,16 @@ class HPCFastTrainer(RodanTask):
 
         with open(outputs['Background Model'][0]['resource_path'], 'wb') as f:
             f.write(base64.decodebytes(self.result_dict['Background Model'].encode('utf-8')))
-        with open(outputs['Music Symbol Model'][0]['resource_path'], 'wb') as f:
-            f.write(base64.decodebytes(self.result_dict['Music Symbol Model'].encode('utf-8')))
-
-        # Optional ports
-        for k in outputs:
-            if k == 'rgba PNG - Staff Lines layer':
-                with open(outputs['Staff Lines Model'][0]['resource_path'], 'wb') as f:
-                    f.write(base64.decodebytes(self.result_dict['Staff Lines Model'].encode('utf-8')))
-            if k == 'Text Model':
-                with open(outputs['Text Model'][0]['resource_path'], 'wb') as f:
-                    f.write(base64.decodebytes(self.result_dict['Text Model'].encode('utf-8')))
+        # with open(outputs['Music Symbol Model'][0]['resource_path'], 'wb') as f:
+        #     f.write(base64.decodebytes(self.result_dict['Music Symbol Model'].encode('utf-8')))
+        # with open(outputs['Staff Lines Model'][0]['resource_path'], 'wb') as f:
+        #     f.write(base64.decodebytes(self.result_dict['Staff Lines Model'].encode('utf-8')))
+        # with open(outputs['Text Model'][0]['resource_path'], 'wb') as f:
+        #     f.write(base64.decodebytes(self.result_dict['Text Model'].encode('utf-8')))
+        for i in range(output_ports):
+            layer = 'Model %d' % i
+            with open(outputs[layer][0]['resource_path'], 'wb') as f:
+                f.write(base64.decodebytes(self.result_dict[layer].encode('utf-8')))
 
         return True
 
